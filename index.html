@@ -1,1 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobMatch</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #f9f9fb;
+  --border: #e5e5e7;
+  --border2: #d1d1d6;
+  --text: #1d1d1f;
+  --text2: #6e6e73;
+  --text3: #aeaeb2;
+  --accent: #0071e3;
+  --accent-bg: #f0f7ff;
+  --accent-border: #cce4ff;
+  --green: #1a8a3c;
+  --green-bg: #f0faf3;
+  --green-border: #b8e6c8;
+  --orange: #c05c00;
+  --orange-bg: #fff8f0;
+  --orange-border: #fdd9b0;
+  --red: #c00b0b;
+  --red-bg: #fff5f5;
+  --red-border: #ffc5c5;
+  --r: 12px;
+  --r-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+.shell { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+  padding: 22px 14px;
+  position: fixed; top: 0; left: 0; bottom: 0;
+  display: flex; flex-direction: column; z-index: 100;
+}
+.logo { padding: 2px 8px; margin-bottom: 26px; }
+.logo-name { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+.logo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+.nav-section { margin-bottom: 4px; }
+.nav-label { font-size: 11px; font-weight: 500; color: var(--text3); padding: 0 8px; margin-bottom: 4px; }
+.ni {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--r-sm);
+  font-size: 13.5px; color: var(--text2);
+  cursor: pointer; transition: all 0.12s; margin-bottom: 1px;
+  border: 1px solid transparent; user-select: none;
+}
+.ni:hover { background: var(--bg); color: var(--text); }
+.ni.active { background: var(--surface); color: var(--text); font-weight: 500; border-color: var(--border); box-shadow: var(--shadow); }
+.ni-icon { font-size: 13px; width: 16px; text-align: center; opacity: 0.65; }
+
+.sidebar-foot { margin-top: auto; padding: 14px 8px 4px; border-top: 1px solid var(--border); }
+.sf-name { font-size: 13px; font-weight: 500; }
+.sf-role { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.sf-chip { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; font-weight: 500; background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); padding: 3px 9px; border-radius: 20px; }
+.sf-dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+
+/* Main */
+.main { margin-left: 220px; flex: 1; padding: 44px 48px; }
+.content { max-width: 740px; }
+
+/* Pages */
+.page { display: none; }
+.page.active { display: block; animation: fadeup 0.18s ease; }
+@keyframes fadeup { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+.ph { margin-bottom: 28px; }
+.ph-title { font-size: 24px; font-weight: 600; letter-spacing: -0.025em; margin-bottom: 5px; }
+.ph-sub { font-size: 14px; color: var(--text2); }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.card-title { font-size: 15px; font-weight: 500; margin-bottom: 3px; }
+.card-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+
+/* Upload */
+.upload-zone {
+  border: 1.5px dashed var(--border2); border-radius: var(--r);
+  padding: 28px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--surface2);
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-bg); }
+.upload-zone.done { border-color: var(--green); border-style: solid; background: var(--green-bg); }
+.uz-icon { font-size: 26px; margin-bottom: 8px; }
+.uz-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.uz-sub { font-size: 12px; color: var(--text2); }
+
+/* Tags */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  font-size: 13px; padding: 5px 13px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text2); cursor: pointer; transition: all 0.12s; user-select: none;
+}
+.tag:hover { border-color: var(--border2); color: var(--text); }
+.tag.on { background: var(--text); color: #fff; border-color: var(--text); }
+
+/* Inputs */
+input[type="text"], input[type="email"], input[type="time"], select {
+  width: 100%; padding: 9px 13px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm); color: var(--text);
+  font-family: inherit; font-size: 14px; outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  box-shadow: var(--shadow);
+}
+input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,113,227,0.1); }
+input::placeholder { color: var(--text3); }
+label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; letter-spacing: 0.01em; }
+
+/* Slider */
+.slider-row { display: flex; align-items: center; gap: 14px; }
+input[type="range"] {
+  flex: 1; -webkit-appearance: none; height: 3px;
+  background: var(--border2); border-radius: 2px; outline: none;
+  padding: 0; border: none; box-shadow: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,113,227,0.3);
+}
+.sv { font-size: 14px; font-weight: 600; min-width: 44px; text-align: right; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: var(--r-sm);
+  font-size: 14px; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: all 0.12s; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow);
+}
+.btn:hover { background: var(--bg); }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 1px 4px rgba(0,113,227,0.2); }
+.btn-primary:hover { background: #0066cc; border-color: #0066cc; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+/* Notice */
+.notice { padding: 12px 16px; border-radius: var(--r-sm); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+.notice-green  { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border);  }
+.notice-blue   { background: var(--accent-bg); color: #005bb5;       border: 1px solid var(--accent-border); }
+.notice-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+.notice-red    { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border);    }
+
+/* Grid */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.row { display: flex; align-items: center; gap: 10px; }
+.flex1 { flex: 1; min-width: 0; }
+
+/* Pipeline steps */
+.step-row { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.step-row:last-child { border-bottom: none; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border2); color: var(--text3);
+  background: var(--surface2); transition: all 0.2s;
+}
+.step-num.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.step-num.done { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+.step-title { font-size: 14px; font-weight: 500; padding-top: 4px; }
+.step-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+/* Loading */
+.load-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; background: var(--accent-bg);
+  border: 1px solid var(--accent-border); border-radius: var(--r);
+  font-size: 13px; color: #005bb5; margin-bottom: 16px;
+}
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--accent-border); border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Metrics */
+.metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+.metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 18px; box-shadow: var(--shadow); }
+.metric-n { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+.metric-l { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+/* Job cards */
+.job-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; margin-bottom: 12px; box-shadow: var(--shadow); transition: box-shadow 0.15s; }
+.job-card:hover { box-shadow: var(--shadow-md); }
+.job-card.high { border-left: 3px solid var(--green); }
+.job-card.mid  { border-left: 3px solid var(--orange); }
+.jc-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.jc-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.jc-company { font-size: 13px; color: var(--text2); }
+.jc-reason { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+.score-pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.sp-green  { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border);  }
+.sp-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+.sp-red    { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border);    }
+.score-bar { height: 3px; background: var(--bg); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+.score-fill { height: 100%; border-radius: 2px; }
+.jc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.jc-tag { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); font-weight: 500; }
+
+/* Email */
+.email-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.email-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.email-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px 18px; font-size: 13.5px; line-height: 1.8; white-space: pre-wrap; color: var(--text); position: relative; font-family: inherit; }
+.email-subj { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+.copy-btn { position: absolute; top: 10px; right: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-family: inherit; transition: all 0.12s; }
+.copy-btn:hover { background: var(--bg); color: var(--text); }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: none; }
+.tl-name { font-size: 13.5px; font-weight: 500; }
+.tl-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+.switch { width: 38px; height: 22px; border-radius: 11px; background: var(--border2); cursor: pointer; position: relative; transition: background 0.2s; border: none; flex-shrink: 0; }
+.switch::after { content:''; position: absolute; width: 16px; height: 16px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.18s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.switch.on { background: var(--accent); }
+.switch.on::after { left: 19px; }
+
+@media(max-width:700px){ .sidebar{display:none;} .main{margin-left:0;padding:24px 18px;} .metrics,.grid2,.grid3{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-name">JobMatch</div>
+    <div class="logo-sub">AI Job Pipeline</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Pipeline</div>
+    <div class="ni active" onclick="nav('setup',this)"><span class="ni-icon">◎</span> Setup</div>
+    <div class="ni" onclick="nav('run',this)"><span class="ni-icon">⚡</span> Find Jobs</div>
+    <div class="ni" onclick="nav('results',this)"><span class="ni-icon">≡</span> Results</div>
+    <div class="ni" onclick="nav('alerts',this)"><span class="ni-icon">◷</span> Alerts</div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="sf-name" id="sf-name">Abhijeet Swarnkar</div>
+    <div class="sf-role" id="sf-role">Creative Director</div>
+    <div class="sf-chip" id="sf-chip"><div class="sf-dot"></div><span id="sf-chip-text">Default resume</span></div>
+  </div>
+</aside>
+
+<main class="main"><div class="content">
+
+<!-- SETUP -->
+<div id="page-setup" class="page active">
+  <div class="ph"><div class="ph-title">Setup</div><div class="ph-sub">Configure your resume and job preferences.</div></div>
+
+  <div class="card">
+    <div class="card-title">Resume</div>
+    <div class="card-sub">Upload a PDF — the AI reads it to score jobs and write emails. Default is Abhijeet's resume.</div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-in').click()">
+      <input type="file" id="file-in" accept=".pdf,.txt" style="display:none" onchange="handleFile(this)">
+      <div class="uz-icon" id="uz-icon">📄</div>
+      <div class="uz-title" id="uz-title">Click to upload resume</div>
+      <div class="uz-sub" id="uz-sub">PDF or TXT · Default resume pre-loaded</div>
+    </div>
+    <div class="row" style="margin-top:10px; gap:10px;">
+      <div class="sf-chip"><div class="sf-dot"></div><span id="resume-chip">Default resume loaded</span></div>
+      <button class="btn btn-sm" id="reset-btn" style="display:none" onclick="resetResume()">Use default</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Target roles</div>
+    <div class="card-sub">The tool searches all selected titles.</div>
+    <div class="tags" id="role-tags">
+      <span class="tag on">Creative Director</span>
+      <span class="tag on">Head of Creative</span>
+      <span class="tag on">Creative Head</span>
+      <span class="tag on">VP Creative</span>
+      <span class="tag on">Brand Director</span>
+      <span class="tag on">Creative Strategy Lead</span>
+      <span class="tag">Group Creative Director</span>
+      <span class="tag">ECD</span>
+      <span class="tag">Head of Brand</span>
+      <span class="tag">Content Director</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Cities</div>
+    <div class="card-sub">Jobs outside these cities are filtered out.</div>
+    <div class="tags" id="city-tags">
+      <span class="tag on">Mumbai</span>
+      <span class="tag on">Bengaluru</span>
+      <span class="tag on">Delhi</span>
+      <span class="tag on">Hyderabad</span>
+      <span class="tag on">Pune</span>
+      <span class="tag">Chennai</span>
+      <span class="tag">Ahmedabad</span>
+      <span class="tag">Gurugram</span>
+      <span class="tag">Noida</span>
+      <span class="tag">Remote</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Sectors</div>
+    <div class="card-sub">Jobs in these sectors get a relevance bonus.</div>
+    <div class="tags" id="sector-tags">
+      <span class="tag on">OTT / Streaming</span>
+      <span class="tag on">Advertising / Agency</span>
+      <span class="tag on">D2C / Brand</span>
+      <span class="tag on">Media / Content</span>
+      <span class="tag on">Tech / SaaS</span>
+      <span class="tag">FMCG</span>
+      <span class="tag">FinTech</span>
+      <span class="tag">EdTech</span>
+      <span class="tag">Real Estate</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Thresholds</div>
+    <div class="card-sub">Only jobs above the match score get an email drafted.</div>
+    <div class="grid2" style="margin-bottom:0;">
+      <div>
+        <label>Min match score for email</label>
+        <div class="slider-row">
+          <input type="range" min="50" max="95" value="80" step="1" id="score-sl" oninput="document.getElementById('sv1').textContent=this.value+'%'">
+          <div class="sv" id="sv1">80%</div>
+        </div>
+      </div>
+      <div>
+        <label>Target CTC</label>
+        <div class="slider-row">
+          <input type="range" min="12" max="60" value="20" step="1" id="ctc-sl" oninput="document.getElementById('sv2').textContent='₹'+this.value+'L'">
+          <div class="sv" id="sv2">₹20L</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Email tone</div>
+    <div class="tags">
+      <span class="tag on" id="tone-direct" onclick="setTone('direct')">Direct & confident</span>
+      <span class="tag" id="tone-warm" onclick="setTone('warm')">Warm & conversational</span>
+      <span class="tag" id="tone-formal" onclick="setTone('formal')">Formal</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Your email</div>
+    <div class="card-sub">Daily digest and alerts are sent here.</div>
+    <input type="email" id="user-email" placeholder="you@gmail.com" value="abhijeetatwork3@gmail.com">
+  </div>
+
+  <button class="btn btn-primary" onclick="saveAndGo()">Save & find jobs →</button>
+</div>
+
+<!-- RUN -->
+<div id="page-run" class="page">
+  <div class="ph"><div class="ph-title">Find Jobs</div><div class="ph-sub">Searches live postings, scores them against your resume, drafts emails for the best matches.</div></div>
+
+  <div class="card">
+    <div class="step-row"><div class="step-num" id="ps1">1</div><div><div class="step-title">Search live jobs</div><div class="step-detail">Queries JSearch for your roles and cities — last 24 hours only</div></div></div>
+    <div class="step-row"><div class="step-num" id="ps2">2</div><div><div class="step-title">Score each match</div><div class="step-detail">Claude reads every description and scores it against your resume</div></div></div>
+    <div class="step-row"><div class="step-num" id="ps3">3</div><div><div class="step-title">Draft outreach emails</div><div class="step-detail">For jobs above <strong id="thr-txt">80%</strong> — personalised, not templated</div></div></div>
+    <div class="step-row"><div class="step-num" id="ps4">4</div><div><div class="step-title">Email you the digest</div><div class="step-detail">All results + drafts land in your inbox</div></div></div>
+  </div>
+
+  <div id="load-bar" style="display:none;" class="load-bar"><div class="spinner"></div><span id="load-msg">Starting...</span></div>
+  <div id="run-ok"  class="notice notice-green"  style="display:none;"></div>
+  <div id="run-err" class="notice notice-orange" style="display:none;"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="runPipeline()" id="run-btn">⚡ Run now</button>
+    <button class="btn" onclick="nav('setup',document.querySelectorAll('.ni')[0])">← Setup</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="page-results" class="page">
+  <div class="ph"><div class="ph-title">Results</div><div class="ph-sub" id="results-sub">Run the pipeline to see matches here.</div></div>
+  <div class="metrics" id="metrics-grid" style="display:none;">
+    <div class="metric"><div class="metric-n" id="m-total">0</div><div class="metric-l">Jobs found</div></div>
+    <div class="metric"><div class="metric-n" id="m-matched">0</div><div class="metric-l">Strong matches</div></div>
+    <div class="metric"><div class="metric-n" id="m-emails">0</div><div class="metric-l">Emails drafted</div></div>
+  </div>
+  <div id="results-list"><div class="notice notice-blue">Run the pipeline first — results appear here.</div></div>
+</div>
+
+<!-- ALERTS -->
+<div id="page-alerts" class="page">
+  <div class="ph"><div class="ph-title">Alert Settings</div><div class="ph-sub">Daily job digest straight to your inbox.</div></div>
+
+  <div class="notice notice-blue">Keep this tab open in your browser. The pipeline checks the clock every minute and runs automatically at your set time.</div>
+
+  <div class="card">
+    <div class="card-title">Alert time</div>
+    <div class="card-sub" style="margin-bottom:12px;">Pipeline runs and emails you at this time every day.</div>
+    <div style="max-width:160px;"><input type="time" id="alert-time" value="09:00"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Preferences</div>
+    <div class="toggle-row">
+      <div><div class="tl-name">Daily digest email</div><div class="tl-sub">Morning summary of new matches</div></div>
+      <button class="switch on" id="sw-daily" onclick="this.classList.toggle('on')"></button>
+    </div>
+    <div class="toggle-row">
+      <div><div class="tl-name">Only email if matches found</div><div class="tl-sub">Skip quiet days</div></div>
+      <button class="switch on" onclick="this.classList.toggle('on')"></button>
+    </div>
+    <div class="toggle-row">
+      <div><div class="tl-name">Include drafted emails in digest</div><div class="tl-sub">Copy-paste ready outreach in inbox</div></div>
+      <button class="switch on" onclick="this.classList.toggle('on')"></button>
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="btn btn-primary" onclick="testEmail()">Send test email</button>
+    <span id="test-status" style="font-size:13px; color:var(--text2);"></span>
+  </div>
+</div>
+
+</div></main>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────
+const EJS_SVC = 'service_yvezo0d';
+const EJS_TPL = 'template_a1iytno';
+const EJS_PUB = 'QTcjymlXW3Njve5Uw';
+emailjs.init(EJS_PUB);
+
+// API endpoint — Vercel function (same domain, no CORS)
+const API = '/api/jobs';
+
+// ── Default resume ────────────────────────────────────────────────────
+const DEFAULT_RESUME = `ABHIJEET SWARNKAR — Creative Director | Brand Strategist
+6+ years | Ahmedabad, India | abhijeetatwork3@gmail.com | +91 74348 89529
+
+SUMMARY: Creative Head and Brand Strategy Leader with 6+ years building and leading creative teams, defining brand identity systems, and driving end-to-end creative direction for startups, scaling businesses, and national infrastructure projects. Supported fundraising rounds totalling over $14M. Full creative lifecycle — from strategic positioning to execution.
+
+KEY ACHIEVEMENTS:
+- Creative direction for 100+ brands: D2C, tech, real estate, FMCG, education
+- Scaled 30-member creative team, grew agency revenue 650% (₹13L → ₹1Cr+)
+- Investor pitch narratives: Rs. 2Cr (CIBOS) and $12.5M (Dorado Capital)
+- Top 50 Global Mentor — ADPList | Best Branding Agency — Clutch.co
+- Campaigns for Dabur, Signature, Revital, Jupiter Money, Allen
+- Full rebrand: India Bullet Train Project (logo, brand architecture, messaging)
+
+EXPERIENCE:
+Executive Assistant to Chairman | Sabarmati High Speed Rail Hub | Sep 2025–Present
+- End-to-end creative direction for India Bullet Train Project
+- Full organisational rebrand: logo, brand architecture, messaging framework
+- Fundraising pitch narratives and investor-ready creative assets
+
+Creative Director & Brand Strategist | Freelance | Aug 2024–Aug 2025
+- CIBOS: Full creative + pitch strategy → Rs. 2Cr fundraise
+- Dorado Capital USA: Brand identity + pitch deck → $12.5M fundraise
+- Clefill: Brand refresh, tone of voice, visual identity
+- Routed NY: Brand identity, go-to-market messaging, investor deck
+
+Founder & Creative Director | Remark Advertisements | May 2019–Jul 2024
+- Built agency from 0 to 18 members, revenue ₹13L → ₹1Cr+ (650% growth)
+- 100+ brand portfolios across all creative disciplines
+- Built Interplay (creative dept) + 10th Floor Mediaworks (film production)
+- Produced short films: "The Fan" and "Ulta"
+
+SKILLS: Creative Direction, Brand Strategy, Brand Architecture, Tone of Voice, Narrative Design, Investor Pitch Design, Team Leadership, Campaign Ideation, Visual Storytelling, Video Direction, Content Strategy, Executive Presentations, C-Suite Collaboration, Adobe Suite, Figma, Framer, Midjourney`;
+
+// ── State ─────────────────────────────────────────────────────────────
+let resumeText = DEFAULT_RESUME;
+let tone = 'direct';
+let prefs = { roles:[], cities:[], sectors:[], minScore:80, ctc:20, email:'' };
+let allResults = [];
+
+// ── Nav ───────────────────────────────────────────────────────────────
+function nav(p, el) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(x => x.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ── Resume ────────────────────────────────────────────────────────────
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const raw = e.target.result;
+    let text = file.name.endsWith('.txt') ? raw : extractText(raw);
+    if (text.trim().length < 80) {
+      alert('Not enough readable text found. Try saving your resume as a .txt file first.');
+      return;
+    }
+    resumeText = text;
+    const firstLine = text.split('\n')[0].split('—')[0].split('|')[0].trim();
+    if (firstLine && firstLine.length < 60) {
+      document.getElementById('sf-name').textContent = firstLine;
+    }
+    document.getElementById('upload-zone').classList.add('done');
+    document.getElementById('uz-icon').textContent = '✅';
+    document.getElementById('uz-title').textContent = file.name;
+    document.getElementById('uz-sub').textContent = Math.round(text.length/1000)+'k chars read';
+    document.getElementById('resume-chip').textContent = 'Custom resume loaded';
+    document.getElementById('sf-chip-text').textContent = 'Custom resume';
+    document.getElementById('reset-btn').style.display = 'inline-flex';
+  };
+  file.name.endsWith('.txt') ? reader.readAsText(file) : reader.readAsBinaryString(file);
+}
+
+function extractText(bin) {
+  let t = '';
+  (bin.split(/[^\x20-\x7E\n\r\t]+/)||[]).forEach(c => { if(c.trim().length>3) t+=c+' '; });
+  (bin.match(/BT[\s\S]*?ET/g)||[]).forEach(b => {
+    (b.match(/\(([^)]+)\)/g)||[]).forEach(m => t+=m.slice(1,-1)+' ');
+  });
+  return t.replace(/\s+/g,' ').trim();
+}
+
+function resetResume() {
+  resumeText = DEFAULT_RESUME;
+  document.getElementById('upload-zone').classList.remove('done');
+  document.getElementById('uz-icon').textContent = '📄';
+  document.getElementById('uz-title').textContent = 'Click to upload resume';
+  document.getElementById('uz-sub').textContent = 'PDF or TXT · Default resume pre-loaded';
+  document.getElementById('resume-chip').textContent = 'Default resume loaded';
+  document.getElementById('sf-chip-text').textContent = 'Default resume';
+  document.getElementById('sf-name').textContent = 'Abhijeet Swarnkar';
+  document.getElementById('reset-btn').style.display = 'none';
+  document.getElementById('file-in').value = '';
+}
+
+// ── Tags ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.tag:not([id])').forEach(t => {
+  t.addEventListener('click', function(){ this.classList.toggle('on'); });
+});
+function getOn(id) { return Array.from(document.querySelectorAll('#'+id+' .tag.on')).map(t=>t.textContent.trim()); }
+function setTone(t) {
+  tone = t;
+  ['direct','warm','formal'].forEach(x => { const e=document.getElementById('tone-'+x); if(e) e.classList.remove('on'); });
+  const e = document.getElementById('tone-'+t); if(e) e.classList.add('on');
+}
+
+// ── Save ──────────────────────────────────────────────────────────────
+function saveAndGo() {
+  prefs.roles   = getOn('role-tags');
+  prefs.cities  = getOn('city-tags');
+  prefs.sectors = getOn('sector-tags');
+  prefs.minScore = parseInt(document.getElementById('score-sl').value);
+  prefs.ctc      = parseInt(document.getElementById('ctc-sl').value);
+  prefs.email    = document.getElementById('user-email').value.trim();
+  if (!prefs.email)          { alert('Add your email.'); return; }
+  if (!prefs.roles.length)   { alert('Select at least one role.'); return; }
+  if (!prefs.cities.length)  { alert('Select at least one city.'); return; }
+  document.getElementById('thr-txt').textContent = prefs.minScore + '%';
+  nav('run', document.querySelectorAll('.ni')[1]);
+}
+
+// ── Step helpers ──────────────────────────────────────────────────────
+function setStep(n, s) {
+  const e = document.getElementById('ps'+n);
+  if (!e) return;
+  e.className = 'step-num ' + s;
+  e.textContent = s === 'done' ? '✓' : n;
+}
+function resetSteps() { for(let i=1;i<=4;i++) setStep(i,''); }
+
+// ── API call ──────────────────────────────────────────────────────────
+async function api(action, payload) {
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload })
+  });
+  if (!r.ok) throw new Error(`API error ${r.status}`);
+  return r.json();
+}
+
+// ── Pipeline ──────────────────────────────────────────────────────────
+async function runPipeline() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  resetSteps();
+  document.getElementById('run-ok').style.display = 'none';
+  document.getElementById('run-err').style.display = 'none';
+  document.getElementById('load-bar').style.display = 'flex';
+  allResults = [];
+
+  const msg = m => document.getElementById('load-msg').textContent = m;
+
+  try {
+    // Step 1 — search
+    setStep(1,'active');
+    msg(`Searching for ${prefs.roles.slice(0,2).join(', ')} in ${prefs.cities.slice(0,3).join(', ')}...`);
+
+    const roleQuery = prefs.roles.slice(0,4).join(' OR ');
+    const { jobs } = await api('search', { query: `(${roleQuery}) India`, cities: prefs.cities });
+    setStep(1,'done');
+
+    if (!jobs.length) throw new Error('No jobs found today. Try broadening roles or cities — or run again tomorrow.');
+
+    // Step 2 — score
+    setStep(2,'active');
+    const scored = [];
+    const limit = Math.min(jobs.length, 15);
+    for (let i = 0; i < limit; i++) {
+      msg(`Scoring ${i+1}/${limit}: ${jobs[i].job_title} at ${jobs[i].employer_name}...`);
+      try {
+        const s = await api('score', { resume: resumeText, job: jobs[i], sectors: prefs.sectors.join(', ') });
+        scored.push({ job: jobs[i], ...s });
+      } catch(e) {
+        scored.push({ job: jobs[i], score: 0, match_tags: [], reason: 'Scoring failed.' });
+      }
+    }
+    scored.sort((a,b) => b.score - a.score);
+    setStep(2,'done');
+
+    // Step 3 — draft emails
+    setStep(3,'active');
+    const high = scored.filter(s => s.score >= prefs.minScore);
+    for (let i = 0; i < Math.min(high.length, 8); i++) {
+      msg(`Drafting email ${i+1}/${Math.min(high.length,8)}: ${high[i].job.job_title}...`);
+      try {
+        high[i].emailDraft = await api('draft', { resume: resumeText, job: high[i].job, tone });
+      } catch(e) {
+        high[i].emailDraft = { subject: 'Application — '+high[i].job.job_title, email: 'Draft failed.' };
+      }
+    }
+    allResults = scored;
+    setStep(3,'done');
+
+    // Step 4 — send digest
+    setStep(4,'active');
+    msg('Sending digest to your inbox...');
+    try { await sendDigest(scored, high); } catch(e) { console.warn('Email failed', e); }
+    setStep(4,'done');
+
+    // Update metrics + render
+    document.getElementById('m-total').textContent   = scored.length;
+    document.getElementById('m-matched').textContent = high.length;
+    document.getElementById('m-emails').textContent  = high.filter(j=>j.emailDraft).length;
+    renderResults(scored);
+
+    document.getElementById('load-bar').style.display = 'none';
+    document.getElementById('run-ok').style.display = 'block';
+    document.getElementById('run-ok').textContent = `✓ Done — ${scored.length} jobs scored, ${high.length} strong match${high.length!==1?'es':''}, digest sent to ${prefs.email}.`;
+    nav('results', document.querySelectorAll('.ni')[2]);
+
+  } catch(err) {
+    document.getElementById('load-bar').style.display = 'none';
+    document.getElementById('run-err').style.display = 'block';
+    document.getElementById('run-err').textContent = '✕ ' + err.message;
+    resetSteps();
+  }
+  btn.disabled = false;
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function renderResults(scored) {
+  document.getElementById('metrics-grid').style.display = 'grid';
+  document.getElementById('results-sub').textContent = `${scored.length} jobs scored · ${scored.filter(s=>s.score>=prefs.minScore).length} above ${prefs.minScore}% threshold`;
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+  if (!scored.length) { list.innerHTML = '<div class="notice notice-orange">No results.</div>'; return; }
+
+  scored.forEach((item, idx) => {
+    const s = item.score;
+    const cls = s >= prefs.minScore ? 'high' : s >= 60 ? 'mid' : '';
+    const badgeCls = s >= prefs.minScore ? 'sp-green' : s >= 60 ? 'sp-orange' : 'sp-red';
+    const barColor = s >= prefs.minScore ? '#1a8a3c' : s >= 60 ? '#c05c00' : '#c00b0b';
+
+    const div = document.createElement('div');
+    div.className = 'job-card ' + cls;
+    div.innerHTML = `
+      <div class="jc-head">
+        <div class="flex1">
+          <div class="jc-title">${item.job.job_title||'Role'}</div>
+          <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}</div>
+        </div>
+        <div class="score-pill ${badgeCls}">${s}% match</div>
+      </div>
+      <div class="jc-reason">${item.reason||''}</div>
+      <div class="score-bar"><div class="score-fill" style="width:${s}%;background:${barColor};transition:width 0.6s ease;"></div></div>
+      <div class="jc-tags">${(item.match_tags||[]).map(t=>`<span class="jc-tag">${t}</span>`).join('')}</div>
+      ${item.emailDraft ? `
+        <div class="email-block">
+          <div class="email-label">Outreach email — ready to send</div>
+          <div class="email-box">
+            <button class="copy-btn" onclick="copyEmail(${idx})">Copy</button>
+            <div class="email-subj">Subject: ${item.emailDraft.subject||''}</div>
+            <div id="eb-${idx}">${item.emailDraft.email||''}</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-sm btn-primary" onclick="copyEmail(${idx})">Copy email</button>
+            ${item.job.job_apply_link ? `<a href="${item.job.job_apply_link}" target="_blank" style="text-decoration:none;"><button class="btn btn-sm">View posting ↗</button></a>` : ''}
+            <button class="btn btn-sm" onclick="regenEmail(${idx})">↻ Rewrite</button>
+          </div>
+        </div>
+      ` : s >= 55 ? `
+        <div class="email-block">
+          <button class="btn btn-sm" onclick="draftOne(${idx}, this)">Draft email</button>
+        </div>
+      ` : ''}`;
+    list.appendChild(div);
+  });
+}
+
+function copyEmail(idx) {
+  const item = allResults[idx];
+  if (!item?.emailDraft) return;
+  navigator.clipboard.writeText(`Subject: ${item.emailDraft.subject}\n\n${item.emailDraft.email}`).then(() => {
+    document.querySelectorAll(`#results-list .job-card:nth-child(${idx+1}) .copy-btn, #results-list .job-card:nth-child(${idx+1}) .btn-primary`).forEach(b => {
+      const o=b.textContent; b.textContent='✓ Copied'; setTimeout(()=>b.textContent=o,2000);
+    });
+  });
+}
+
+async function draftOne(idx, btn) {
+  const item = allResults[idx];
+  if (!item) return;
+  btn.textContent='Drafting...'; btn.disabled=true;
+  try { item.emailDraft = await api('draft',{resume:resumeText,job:item.job,tone}); renderResults(allResults); }
+  catch(e) { btn.textContent='Failed'; btn.disabled=false; }
+}
+
+async function regenEmail(idx) {
+  const item = allResults[idx];
+  if (!item) return;
+  const btn = event.currentTarget;
+  btn.textContent='Rewriting...'; btn.disabled=true;
+  try { item.emailDraft = await api('draft',{resume:resumeText,job:item.job,tone}); renderResults(allResults); }
+  catch(e) { btn.textContent='Failed'; btn.disabled=false; }
+}
+
+// ── Digest email ──────────────────────────────────────────────────────
+async function sendDigest(scored, high) {
+  const date = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'});
+  const lines = [`JobMatch Digest — ${date}`, `${scored.length} jobs scored · ${high.length} strong matches\n`,'─'.repeat(48)];
+  if (!high.length) { lines.push('\nNo strong matches today.'); }
+  else {
+    high.slice(0,8).forEach((item,i) => {
+      lines.push(`\n${i+1}. ${item.job.job_title} — ${item.job.employer_name}`);
+      lines.push(`   ${item.job.job_city||'India'} · ${item.score}% match`);
+      lines.push(`   ${item.reason}`);
+      if (item.job.job_apply_link) lines.push(`   Apply: ${item.job.job_apply_link}`);
+      if (item.emailDraft) { lines.push(`\n   DRAFT:\n   Subject: ${item.emailDraft.subject}\n\n   ${ (item.emailDraft.email||'').replace(/\n/g,'\n   ')}`); }
+      lines.push('\n'+'─'.repeat(48));
+    });
+  }
+  await emailjs.send(EJS_SVC, EJS_TPL, {
+    to_email: prefs.email,
+    subject: `JobMatch: ${high.length} match${high.length!==1?'es':''} — ${new Date().toLocaleDateString('en-IN')}`,
+    message: lines.join('\n')
+  });
+}
+
+async function testEmail() {
+  const email = document.getElementById('user-email').value || prefs.email;
+  if (!email) { alert('Set your email in Setup first.'); return; }
+  const st = document.getElementById('test-status');
+  st.textContent = 'Sending...'; st.style.color = 'var(--text2)';
+  try {
+    await emailjs.send(EJS_SVC, EJS_TPL, {
+      to_email: email, subject: 'JobMatch — Test ✓',
+      message: `Everything is connected and working.\n\nCurrent config:\nRoles: ${prefs.roles.join(', ')||'(save setup first)'}\nCities: ${prefs.cities.join(', ')||'(save setup first)'}\nMin score: ${prefs.minScore}%\n\n— JobMatch`
+    });
+    st.textContent = '✓ Sent — check your inbox'; st.style.color = 'var(--green)';
+  } catch(e) { st.textContent = '✕ ' + (e.text||e.message); st.style.color = 'var(--red)'; }
+}
+
+// ── Scheduler ─────────────────────────────────────────────────────────
+let lastRun = '';
+setInterval(() => {
+  const t = document.getElementById('alert-time');
+  if (!t || !document.getElementById('sw-daily').classList.contains('on') || !prefs.email) return;
+  const [h,m] = t.value.split(':').map(Number);
+  const now = new Date();
+  const key = now.toDateString();
+  if (now.getHours()===h && now.getMinutes()===m && lastRun!==key) {
+    lastRun = key;
+    nav('run', document.querySelectorAll('.ni')[1]);
+    setTimeout(runPipeline, 800);
+  }
+}, 60000);
+</script>
+</body>
+</html>
 
