@@ -695,7 +695,7 @@ async function runPipeline() {
     setStep(1,'active');
     msg(`Searching for ${prefs.roles.slice(0,2).join(', ')} in ${prefs.cities.slice(0,3).join(', ')}...`);
 
-    const { jobs } = await api('search', { roles: prefs.roles, cities: prefs.cities, watchlist: prefs.watchlist || [] });
+    const { jobs } = await api('search', { roles: prefs.roles, cities: prefs.cities, watchlist: prefs.watchlist || [], targetCompanies: prefs.targetCompanies || [] });
     setStep(1,'done');
 
     if (!jobs.length) throw new Error('No jobs found today. Try broadening roles or cities — or run again tomorrow.');
@@ -791,7 +791,7 @@ function renderResults(scored) {
       <div class="jc-head">
         <div class="flex1">
           <div class="jc-title">${item.job.job_title||'Role'}</div>
-          <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}${item.job.isWatchlist ? ' <span style="font-size:10px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">★ Watchlist</span>' : ''}</div>
+          <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}${item.job.isWatchlist ? ' <span style="font-size:10px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">★ Watchlist</span>' : ''}${item.job.isTarget ? ' <span style="font-size:10px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">♥ Target</span>' : ''}</div>
           <div style="font-size:11px;color:var(--text3);margin-top:1px;display:flex;gap:8px;align-items:center;">
             ${item.job.job_posted_at_datetime_utc ? '<span>Posted: ' + new Date(item.job.job_posted_at_datetime_utc).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) + '</span>' : ''}
             ${item.job.source ? '<span style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:10px;">' + item.job.source + '</span>' : ''}
