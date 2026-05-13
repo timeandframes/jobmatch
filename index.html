@@ -614,8 +614,7 @@ async function runPipeline() {
     setStep(1,'active');
     msg(`Searching for ${prefs.roles.slice(0,2).join(', ')} in ${prefs.cities.slice(0,3).join(', ')}...`);
 
-    const roleQuery = prefs.roles.slice(0,4).join(' OR ');
-    const { jobs } = await api('search', { query: `(${roleQuery}) India`, cities: prefs.cities });
+    const { jobs } = await api('search', { roles: prefs.roles, cities: prefs.cities });
     setStep(1,'done');
 
     if (!jobs.length) throw new Error('No jobs found today. Try broadening roles or cities — or run again tomorrow.');
@@ -806,4 +805,3 @@ setInterval(() => {
 </script>
 </body>
 </html>
-
