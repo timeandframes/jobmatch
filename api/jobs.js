@@ -37,86 +37,81 @@ export default async function handler(req, res) {
     const clean = raw.replace(/```json|```/g, '').trim();
     const start = clean.indexOf('{');
     const end   = clean.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('No JSON found in response');
+    if (start === -1 || end === -1) throw new Error('No JSON in response');
     return JSON.parse(clean.slice(start, end + 1));
   }
 
   try {
 
-    // ── Search jobs via JSearch ────────────────────────────────────
+    // SEARCH
     if (action === 'search') {
-      const { query, cities } = payload;
-      const q = encodeURIComponent(query);
-      const url = `https://jsearch.p.rapidapi.com/search?query=${q}&num_pages=3&date_posted=today&country=in&language=en`;
+      const { roles, cities } = payload;
 
-      const r = await fetch(url, {
-        headers: {
-          'x-rapidapi-key': JSEARCH_KEY,
-          'x-rapidapi-host': 'jsearch.p.rapidapi.com'
-        }
+      const searches = roles.slice(0, 4).map(role => {
+        const q = encodeURIComponent(`${role} India`);
+        return fetch(
+          `https://jsearch.p.rapidapi.com/search?query=${q}&num_pages=2&date_posted=week&country=in&language=en`,
+          {
+            headers: {
+              'x-rapidapi-key': JSEARCH_KEY,
+              'x-rapidapi-host': 'jsearch.p.rapidapi.com'
+            }
+          }
+        ).then(r => r.json()).catch(() => ({ data: [] }));
       });
 
-      const data = await r.json();
-      if (!data.data) return res.status(200).json({ jobs: [] });
+      const results = await Promise.all(searches);
+
+      const seen = new Set();
+      let allJobs = [];
+      for (const result of results) {
+        for (const job of (result.data || [])) {
+          if (!seen.has(job.job_id)) {
+            seen.add(job.job_id);
+            allJobs.push(job);
+          }
+        }
+      }
 
       const cityLower = cities.map(c => c.toLowerCase());
-      const filtered = data.data.filter(job => {
-        const loc = [job.job_city, job.job_state, job.job_country].join(' ').toLowerCase();
+
+      const filtered = allJobs.filter(job => {
         if (cities.includes('Remote') && job.job_is_remote) return true;
-        return cityLower.some(c => loc.includes(c));
+        const loc = [job.job_city || '', job.job_state || '', job.job_country || ''].join(' ').toLowerCase();
+        if (!loc.trim() || loc.trim() === 'india') return true;
+        return cityLower.some(c => {
+          if (c === 'delhi' && (loc.includes('delhi') || loc.includes('ncr') || loc.includes('gurugram') || loc.includes('noida'))) return true;
+          if (c === 'bengaluru' && (loc.includes('bengaluru') || loc.includes('bangalore'))) return true;
+          return loc.includes(c);
+        });
       });
 
-      return res.status(200).json({ jobs: filtered.slice(0, 20) });
+      filtered.sort((a, b) => (b.job_posted_at_timestamp || 0) - (a.job_posted_at_timestamp || 0));
+      return res.status(200).json({ jobs: filtered.slice(0, 25), total: allJobs.length });
     }
 
-    // ── Score job ─────────────────────────────────────────────────────
+    // SCORE
     if (action === 'score') {
       const { resume, job, sectors } = payload;
-      const jd = `Title: ${job.job_title}
-Company: ${job.employer_name}
-Location: ${job.job_city || ''}, ${job.job_state || ''}
-Description: ${(job.job_description || '').slice(0, 1800)}`;
-
-      const system = `You are a career analyst. Score how well this candidate's resume matches the job posting.
-Return ONLY valid JSON with no extra text, no markdown, no explanation:
-{"score":<integer 0-100>,"match_tags":["short tag","short tag","short tag"],"reason":"One honest sentence explaining the match or gap."}
-Scoring guide: 90-100=near-perfect match. 75-89=strong match. 60-74=decent match. Below 60=weak match. Be honest and specific, do not inflate scores.`;
-
-      const user = `RESUME:\n${resume}\n\nJOB:\n${jd}\n\nCandidate's preferred sectors: ${sectors}`;
-      const raw  = await groq(system, user, 300);
-      const parsed = parseJSON(raw);
-      return res.status(200).json(parsed);
+      const jd = `Title: ${job.job_title}\nCompany: ${job.employer_name}\nLocation: ${job.job_city || ''}, ${job.job_state || ''}\nDescription: ${(job.job_description || '').slice(0, 1800)}`;
+      const system = `You are a career analyst. Score how well this candidate matches this job.\nReturn ONLY valid JSON, nothing else, no markdown:\n{"score":<integer 0-100>,"match_tags":["tag 1","tag 2","tag 3"],"reason":"One honest specific sentence about the match or gap."}\nScoring: 90-100=near-perfect. 75-89=strong. 60-74=decent. Below 60=weak. Be honest, do not inflate.`;
+      const raw = await groq(system, `RESUME:\n${resume}\n\nJOB:\n${jd}\n\nPreferred sectors: ${sectors}`, 250);
+      return res.status(200).json(parseJSON(raw));
     }
 
-    // ── Draft email ───────────────────────────────────────────────────
+    // DRAFT
     if (action === 'draft') {
       const { resume, job, tone } = payload;
-
-      const system = `You are an expert career copywriter. Write a cold outreach email from this candidate to the hiring manager.
-Tone: ${tone}.
-Rules:
-- Exactly 3 short paragraphs
-- Opening must be specific to this company and role — never start with "I am writing to express my interest"
-- Paragraph 2: mention 1-2 specific, quantified achievements from the resume that directly apply to this role
-- Paragraph 3: one clear, low-friction ask — e.g. "Would you have 20 minutes this week?"
-- Sign off: candidate name, phone, LinkedIn
-- Subject line: compelling and specific, under 10 words
-- Sound like a real person, not a template
-
-Return ONLY valid JSON with no extra text, no markdown:
-{"subject":"subject line here","email":"full email body here with real newlines"}`;
-
+      const system = `You are an expert career copywriter. Write a cold outreach email from this candidate to the hiring manager.\nTone: ${tone}.\nRules:\n- Exactly 3 short paragraphs\n- Open with something specific to this company/role — NEVER "I am writing to express my interest"\n- Para 2: cite 1-2 specific quantified achievements from the resume relevant to THIS role\n- Para 3: one clear low-friction ask like "Would you have 20 minutes this week?"\n- Sign off with candidate name, phone, LinkedIn URL\n- Subject line: specific and compelling, under 10 words\n- Sound like a sharp human, not a template\n\nReturn ONLY valid JSON, nothing else, no markdown:\n{"subject":"subject here","email":"full email body with real newlines"}`;
       const user = `RESUME:\n${resume}\n\nJOB:\nTitle: ${job.job_title}\nCompany: ${job.employer_name}\nLocation: ${job.job_city || ''}, ${job.job_state || ''}\nDescription: ${(job.job_description || '').slice(0, 1200)}`;
-
-      const raw    = await groq(system, user, 700);
-      const parsed = parseJSON(raw);
-      return res.status(200).json(parsed);
+      const raw = await groq(system, user, 700);
+      return res.status(200).json(parseJSON(raw));
     }
 
     return res.status(400).json({ error: 'Unknown action' });
 
   } catch (err) {
-    console.error(err);
+    console.error('Handler error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
