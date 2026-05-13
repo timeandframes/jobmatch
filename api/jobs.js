@@ -9,7 +9,37 @@ export default async function handler(req, res) {
   const { action, payload } = req.body;
 
   const JSEARCH_KEY = process.env.JSEARCH_KEY;
-  const CLAUDE_KEY  = process.env.CLAUDE_KEY;
+  const GROQ_KEY    = process.env.GROQ_KEY;
+
+  async function groq(system, user, maxTokens = 400) {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: maxTokens,
+        temperature: 0.4,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user',   content: user   }
+        ]
+      })
+    });
+    const data = await r.json();
+    if (!data.choices?.[0]) throw new Error('Groq API error: ' + JSON.stringify(data));
+    return data.choices[0].message.content;
+  }
+
+  function parseJSON(raw) {
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const start = clean.indexOf('{');
+    const end   = clean.lastIndexOf('}');
+    if (start === -1 || end === -1) throw new Error('No JSON found in response');
+    return JSON.parse(clean.slice(start, end + 1));
+  }
 
   try {
 
@@ -39,58 +69,47 @@ export default async function handler(req, res) {
       return res.status(200).json({ jobs: filtered.slice(0, 20) });
     }
 
-    // ── Score a job via Claude ─────────────────────────────────────
+    // ── Score job ─────────────────────────────────────────────────────
     if (action === 'score') {
       const { resume, job, sectors } = payload;
-      const jd = `Title: ${job.job_title}\nCompany: ${job.employer_name}\nLocation: ${job.job_city||''}, ${job.job_state||''}\nDescription: ${(job.job_description||'').slice(0, 1800)}`;
+      const jd = `Title: ${job.job_title}
+Company: ${job.employer_name}
+Location: ${job.job_city || ''}, ${job.job_state || ''}
+Description: ${(job.job_description || '').slice(0, 1800)}`;
 
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          system: `Score how well this candidate's resume matches the job. Return ONLY valid JSON, no markdown:
-{"score":<0-100>,"match_tags":["tag1","tag2","tag3"],"reason":"One honest sentence."}
-90-100=near-perfect. 75-89=strong. 60-74=decent. Below 60=weak. Be honest, don't inflate.`,
-          messages: [{ role: 'user', content: `RESUME:\n${resume}\n\nJOB:\n${jd}\n\nPreferred sectors: ${sectors}` }]
-        })
-      });
+      const system = `You are a career analyst. Score how well this candidate's resume matches the job posting.
+Return ONLY valid JSON with no extra text, no markdown, no explanation:
+{"score":<integer 0-100>,"match_tags":["short tag","short tag","short tag"],"reason":"One honest sentence explaining the match or gap."}
+Scoring guide: 90-100=near-perfect match. 75-89=strong match. 60-74=decent match. Below 60=weak match. Be honest and specific, do not inflate scores.`;
 
-      const data = await r.json();
-      const text = data.content?.[0]?.text || '{}';
-      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+      const user = `RESUME:\n${resume}\n\nJOB:\n${jd}\n\nCandidate's preferred sectors: ${sectors}`;
+      const raw  = await groq(system, user, 300);
+      const parsed = parseJSON(raw);
       return res.status(200).json(parsed);
     }
 
-    // ── Draft email via Claude ─────────────────────────────────────
+    // ── Draft email ───────────────────────────────────────────────────
     if (action === 'draft') {
       const { resume, job, tone } = payload;
 
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': CLAUDE_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 600,
-          system: `Write a cold outreach email from this candidate to the hiring manager. Tone: ${tone}.
-Rules: 3 tight paragraphs. Open specifically about THIS role/company — NOT "I am writing to express my interest". Para 2: cite 1-2 specific achievements from the resume relevant to THIS role. Para 3: clear low-friction ask. Sign off with name and contact. Sound human, not templated. Subject: compelling, under 10 words.
-Return ONLY valid JSON: {"subject":"...","email":"full body with real newlines"}`,
-          messages: [{ role: 'user', content: `RESUME:\n${resume}\n\nJOB:\nTitle: ${job.job_title}\nCompany: ${job.employer_name}\nLocation: ${job.job_city||''}, ${job.job_state||''}\nDescription: ${(job.job_description||'').slice(0, 1000)}` }]
-        })
-      });
+      const system = `You are an expert career copywriter. Write a cold outreach email from this candidate to the hiring manager.
+Tone: ${tone}.
+Rules:
+- Exactly 3 short paragraphs
+- Opening must be specific to this company and role — never start with "I am writing to express my interest"
+- Paragraph 2: mention 1-2 specific, quantified achievements from the resume that directly apply to this role
+- Paragraph 3: one clear, low-friction ask — e.g. "Would you have 20 minutes this week?"
+- Sign off: candidate name, phone, LinkedIn
+- Subject line: compelling and specific, under 10 words
+- Sound like a real person, not a template
 
-      const data = await r.json();
-      const text = data.content?.[0]?.text || '{}';
-      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+Return ONLY valid JSON with no extra text, no markdown:
+{"subject":"subject line here","email":"full email body here with real newlines"}`;
+
+      const user = `RESUME:\n${resume}\n\nJOB:\nTitle: ${job.job_title}\nCompany: ${job.employer_name}\nLocation: ${job.job_city || ''}, ${job.job_state || ''}\nDescription: ${(job.job_description || '').slice(0, 1200)}`;
+
+      const raw    = await groq(system, user, 700);
+      const parsed = parseJSON(raw);
       return res.status(200).json(parsed);
     }
 
