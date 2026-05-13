@@ -371,6 +371,51 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
     <input type="email" id="user-email" placeholder="you@gmail.com" value="abhijeetatwork3@gmail.com">
   </div>
 
+  <div class="card">
+    <div class="card-title">Target companies</div>
+    <div class="card-sub">Companies you specifically want to work at. Jobs from these get a scoring boost and are highlighted in results.</div>
+    <div class="tags" id="target-company-tags" style="margin-bottom:10px;">
+      <span class="tag on">Netflix India</span>
+      <span class="tag on">Disney+ Hotstar</span>
+      <span class="tag on">Dentsu</span>
+      <span class="tag on">Ogilvy</span>
+      <span class="tag on">McCann</span>
+      <span class="tag on">Leo Burnett</span>
+      <span class="tag">Publicis</span>
+      <span class="tag">BBDO</span>
+      <span class="tag">boAt</span>
+      <span class="tag">Swiggy</span>
+      <span class="tag">Zomato</span>
+      <span class="tag">Razorpay</span>
+    </div>
+    <div class="row" style="gap:8px;">
+      <input type="text" id="company-input" placeholder="Add a company..." style="flex:1;" onkeydown="if(event.key==='Enter') addCompanyTag()">
+      <button class="btn btn-sm" onclick="addCompanyTag()">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Watchlist <span style="font-size:11px;font-weight:400;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent-border);padding:2px 8px;border-radius:10px;margin-left:6px;">Instant alert</span></div>
+    <div class="card-sub">Get an immediate email the moment any of these companies posts a relevant job, regardless of match score.</div>
+    <div class="tags" id="watchlist-tags" style="margin-bottom:10px;">
+      <span class="tag on">Amazon</span>
+      <span class="tag on">Google India</span>
+      <span class="tag on">Apple India</span>
+      <span class="tag">Meta India</span>
+      <span class="tag">Adobe India</span>
+    </div>
+    <div class="row" style="gap:8px;">
+      <input type="text" id="watchlist-input" placeholder="Add company to watchlist..." style="flex:1;" onkeydown="if(event.key==='Enter') addWatchlistTag()">
+      <button class="btn btn-sm" onclick="addWatchlistTag()">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Your email</div>
+    <div class="card-sub">Daily digest and alerts are sent here.</div>
+    <input type="email" id="user-email" placeholder="you@gmail.com" value="abhijeetatwork3@gmail.com">
+  </div>
+
   <button class="btn btn-primary" onclick="saveAndGo()">Save & find jobs →</button>
 </div>
 
@@ -563,10 +608,36 @@ function setTone(t) {
 }
 
 // ── Save ──────────────────────────────────────────────────────────────
+function addCompanyTag() {
+  const inp = document.getElementById('company-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  const span = document.createElement('span');
+  span.className = 'tag on';
+  span.textContent = val;
+  span.addEventListener('click', function(){ this.classList.toggle('on'); });
+  document.getElementById('target-company-tags').appendChild(span);
+  inp.value = '';
+}
+
+function addWatchlistTag() {
+  const inp = document.getElementById('watchlist-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  const span = document.createElement('span');
+  span.className = 'tag on';
+  span.textContent = val;
+  span.addEventListener('click', function(){ this.classList.toggle('on'); });
+  document.getElementById('watchlist-tags').appendChild(span);
+  inp.value = '';
+}
+
 function saveAndGo() {
-  prefs.roles   = getOn('role-tags');
-  prefs.cities  = getOn('city-tags');
-  prefs.sectors = getOn('sector-tags');
+  prefs.roles          = getOn('role-tags');
+  prefs.cities         = getOn('city-tags');
+  prefs.sectors        = getOn('sector-tags');
+  prefs.targetCompanies = getOn('target-company-tags');
+  prefs.watchlist      = getOn('watchlist-tags');
   prefs.minScore = parseInt(document.getElementById('score-sl').value);
   prefs.ctc      = parseInt(document.getElementById('ctc-sl').value);
   prefs.email    = document.getElementById('user-email').value.trim();
@@ -614,7 +685,7 @@ async function runPipeline() {
     setStep(1,'active');
     msg(`Searching for ${prefs.roles.slice(0,2).join(', ')} in ${prefs.cities.slice(0,3).join(', ')}...`);
 
-    const { jobs } = await api('search', { roles: prefs.roles, cities: prefs.cities });
+    const { jobs } = await api('search', { roles: prefs.roles, cities: prefs.cities, watchlist: prefs.watchlist || [] });
     setStep(1,'done');
 
     if (!jobs.length) throw new Error('No jobs found today. Try broadening roles or cities — or run again tomorrow.');
@@ -626,7 +697,7 @@ async function runPipeline() {
     for (let i = 0; i < limit; i++) {
       msg(`Scoring ${i+1}/${limit}: ${jobs[i].job_title} at ${jobs[i].employer_name}...`);
       try {
-        const s = await api('score', { resume: resumeText, job: jobs[i], sectors: prefs.sectors.join(', ') });
+        const s = await api('score', { resume: resumeText, job: jobs[i], sectors: prefs.sectors.join(', '), targetCompanies: prefs.targetCompanies || [] });
         scored.push({ job: jobs[i], ...s });
       } catch(e) {
         scored.push({ job: jobs[i], score: 0, match_tags: [], reason: 'Scoring failed.' });
@@ -638,13 +709,28 @@ async function runPipeline() {
     // Step 3 — draft emails
     setStep(3,'active');
     const high = scored.filter(s => s.score >= prefs.minScore);
-    for (let i = 0; i < Math.min(high.length, 8); i++) {
-      msg(`Drafting email ${i+1}/${Math.min(high.length,8)}: ${high[i].job.job_title}...`);
+    const draftLimit = Math.min(high.length, 5);
+    for (let i = 0; i < draftLimit; i++) {
+      msg(`Drafting email ${i+1}/${draftLimit}: ${high[i].job.job_title}... (pacing to avoid rate limits)`);
       try {
         high[i].emailDraft = await api('draft', { resume: resumeText, job: high[i].job, tone });
       } catch(e) {
-        high[i].emailDraft = { subject: 'Application — '+high[i].job.job_title, email: 'Draft failed.' };
+        high[i].emailDraft = { subject: 'Application — '+high[i].job.job_title, email: 'Draft failed — click Rewrite to retry.' };
       }
+    }
+    // Send instant watchlist alerts
+    const watchlistHits = scored.filter(s => s.job.isWatchlist);
+    if (watchlistHits.length > 0 && prefs.email) {
+      try {
+        const wLines = watchlistHits.map((item, i) =>
+          `${i+1}. ${item.job.job_title} at ${item.job.employer_name} (${item.score}% match)\n   ${item.job.job_apply_link || 'No link'}`
+        ).join('\n\n');
+        await emailjs.send(EJS_SVC, EJS_TPL, {
+          to_email: prefs.email,
+          subject: `⚠️ Watchlist alert: ${watchlistHits.length} job${watchlistHits.length>1?'s':''} from your tracked companies`,
+          message: `WATCHLIST ALERT\n\nThese companies from your watchlist just posted jobs:\n\n${wLines}\n\n— JobMatch`
+        });
+      } catch(e) { console.warn('Watchlist email failed', e); }
     }
     allResults = scored;
     setStep(3,'done');
@@ -695,7 +781,8 @@ function renderResults(scored) {
       <div class="jc-head">
         <div class="flex1">
           <div class="jc-title">${item.job.job_title||'Role'}</div>
-          <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}</div>
+          <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}${item.job.isWatchlist ? ' <span style="font-size:10px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">★ Watchlist</span>' : ''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px;">${item.job.job_posted_at_datetime_utc ? 'Posted: ' + new Date(item.job.job_posted_at_datetime_utc).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : ''}</div>
         </div>
         <div class="score-pill ${badgeCls}">${s}% match</div>
       </div>
