@@ -430,6 +430,16 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
     <div class="step-row"><div class="step-num" id="ps4">4</div><div><div class="step-title">Email you the digest</div><div class="step-detail">All results + drafts land in your inbox</div></div></div>
   </div>
 
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">Paste a job URL <span style="font-size:11px;font-weight:400;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent-border);padding:2px 8px;border-radius:10px;margin-left:6px;">Manual</span></div>
+    <div class="card-sub">Spotted a job on LinkedIn or anywhere else? Paste the URL — it gets scraped, scored, and an email drafted instantly.</div>
+    <div class="row" style="gap:8px;">
+      <input type="text" id="manual-url" placeholder="https://in.linkedin.com/jobs/view/..." style="flex:1;">
+      <button class="btn btn-primary btn-sm" onclick="runManual()" id="manual-btn">Score & draft →</button>
+    </div>
+    <div id="manual-status" style="font-size:13px;color:var(--text2);margin-top:8px;display:none;"></div>
+  </div>
+
   <div id="load-bar" style="display:none;" class="load-bar"><div class="spinner"></div><span id="load-msg">Starting...</span></div>
   <div id="run-ok"  class="notice notice-green"  style="display:none;"></div>
   <div id="run-err" class="notice notice-orange" style="display:none;"></div>
@@ -782,7 +792,10 @@ function renderResults(scored) {
         <div class="flex1">
           <div class="jc-title">${item.job.job_title||'Role'}</div>
           <div class="jc-company">${item.job.employer_name||'Company'} · ${item.job.job_city||item.job.job_state||'India'}${item.job.isWatchlist ? ' <span style="font-size:10px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">★ Watchlist</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:1px;">${item.job.job_posted_at_datetime_utc ? 'Posted: ' + new Date(item.job.job_posted_at_datetime_utc).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : ''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px;display:flex;gap:8px;align-items:center;">
+            ${item.job.job_posted_at_datetime_utc ? '<span>Posted: ' + new Date(item.job.job_posted_at_datetime_utc).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) + '</span>' : ''}
+            ${item.job.source ? '<span style="background:var(--bg3);padding:1px 6px;border-radius:4px;font-size:10px;">' + item.job.source + '</span>' : ''}
+          </div>
         </div>
         <div class="score-pill ${badgeCls}">${s}% match</div>
       </div>
@@ -874,6 +887,59 @@ async function testEmail() {
     st.textContent = '✓ Sent — check your inbox'; st.style.color = 'var(--green)';
   } catch(e) { st.textContent = '✕ ' + (e.text||e.message); st.style.color = 'var(--red)'; }
 }
+
+// ── Manual URL ─────────────────────────────────────────────────────────
+async function runManual() {
+  const url = document.getElementById('manual-url').value.trim();
+  if (!url || !url.startsWith('http')) { alert('Paste a valid job URL starting with https://'); return; }
+
+  const btn = document.getElementById('manual-btn');
+  const status = document.getElementById('manual-status');
+  btn.disabled = true;
+  btn.textContent = 'Scraping...';
+  status.style.display = 'block';
+  status.style.color = 'var(--text2)';
+
+  try {
+    status.textContent = 'Reading the job page...';
+    const { job } = await api('scrape', { url });
+
+    status.textContent = 'Scoring against your resume...';
+    const score = await api('score', {
+      resume: resumeText,
+      job,
+      sectors: prefs.sectors?.join(', ') || '',
+      targetCompanies: prefs.targetCompanies || []
+    });
+
+    status.textContent = 'Drafting your email...';
+    await sleep(3000);
+    const draft = await api('draft', { resume: resumeText, job, tone });
+
+    // Add to results
+    const newItem = { job: { ...job, source: 'Manual' }, ...score, emailDraft: draft };
+    allResults = [newItem, ...allResults];
+
+    // Update metrics
+    document.getElementById('m-total').textContent   = allResults.length;
+    document.getElementById('m-matched').textContent = allResults.filter(s=>s.score>=(prefs.minScore||80)).length;
+    document.getElementById('m-emails').textContent  = allResults.filter(j=>j.emailDraft).length;
+
+    renderResults(allResults);
+    status.textContent = '✓ Done — check Results tab';
+    status.style.color = 'var(--green)';
+    document.getElementById('manual-url').value = '';
+    nav('results', document.querySelectorAll('.ni')[2]);
+
+  } catch(e) {
+    status.textContent = '✕ ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Score & draft →';
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── Scheduler ─────────────────────────────────────────────────────────
 let lastRun = '';
